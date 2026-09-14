@@ -40,7 +40,7 @@ def print_renzoku(grid, constraints):
     print(render_renzoku(grid, constraints))
 
 
-def check_constraints(a, b, grid, constraints):
+def check_constraints(a, b, num, grid, constraints):
 
     cur = grid[a, b]
     right = grid[i, j+1] if j+1 < grid.shape[1] else -1
@@ -54,12 +54,12 @@ def check_constraints(a, b, grid, constraints):
 
 
 def solve_renzoku(grid, constraints):
-    return
+    return solve(grid, constraints, 0, 0)
 
 
 def solve(grid, constraints, row, col):
     if (row+1, col) == grid.shape: 
-        return
+        return grid
 
     elif col == grid.shape[1]:
         return solve(grid, constraints, row+1, 0)
@@ -68,6 +68,11 @@ def solve(grid, constraints, row, col):
         return solve(grid, constraints, row, col+1)
 
     for num in range(1, grid.shape[0]):
+        if check_constraints(row, col, num, grid, constraints):
+            grid[row, col] = num
+            if solve(grid, constraints, row, col+1):
+                return grid
+            grid[row, col] = 0
         
                     
 #true = 3●2
