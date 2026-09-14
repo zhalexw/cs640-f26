@@ -48,20 +48,33 @@ def check_constraints(a, b, num, grid, constraints):
             return False
 
     #check for adjacency constraints
+    up = grid[a-1, b] if a-1 >= 0 else 0
+    left = grid[a, b-1] if b-1 >= 0 else 0
     right = grid[a, b+1] if b+1 < grid.shape[0] else 0
     down = grid[a+1, b] if a+1 < grid.shape[0] else 0
-    #print (a, b, right, down, num)
-    if down != 0 and (a, b, False) in constraints and abs(num-down) != 1:
+
+    if down != 0 and (a, b, True) in constraints and abs(num-down) != 1:
         return False
-    elif down != 0 and abs(num-down) == 1:
+    elif down != 0 and (a,b,True) not in constraints and abs(num-down) == 1:
+        return False
+
+    if up != 0 and (a-1, b, True) in constraints and abs(num-up) != 1:
+        return False
+    elif up != 0 and (a-1,b,True) not in constraints and abs(num-up) == 1:
         return False
     
-    if right != 0 and (a, b, True) in constraints and abs(num-right) != 1:
+    if right != 0 and (a, b, False) in constraints and abs(num-right) != 1:
         return False
-    elif right != 0 and abs(num-right) == 1:
+    elif right != 0 and (a,b,False) not in constraints and abs(num-right) == 1:
+        return False
+
+    if left != 0 and (a, b-1, False) in constraints and abs(num-left) != 1:
+        return False
+    elif left != 0 and (a,b-1,False) not in constraints and abs(num-left) == 1:  
         return False
     
     return True
+
             
 def solve(grid, constraints, row, col):
     if (row+1, col) == grid.shape: 
@@ -74,10 +87,11 @@ def solve(grid, constraints, row, col):
         return solve(grid, constraints, row, col+1)
 
     for num in range(1, grid.shape[0]+1):
+        print (row, col, num)
         if check_constraints(row, col, num, grid, constraints):
             grid[row, col] = num
-            return solve(grid, constraints, row, col+1) 
-
+            return solve(grid, constraints, row, col+1)
+    
     return None
             
 
@@ -99,7 +113,7 @@ def test_renzoku(grid, constraints):
         print_renzoku(solution, constraints)
 
 
-test_grid = np.asarray([[0, 3, 2], [3, 2, 0], [0, 0, 0]])
-test_constraints = set([(0, 1, False), (0, 1, True), (0, 2, True), (1, 0, False), (1, 0, True), (1, 1, False), (1, 1, True), (2, 0, False)])
+test_grid = np.asarray([[0, 0, 3], [3, 0, 0], [0, 0, 0]])
+test_constraints = set([(0,0,False), (0,0,True), (0,1,True), (1,0,False), (1,1,False), (1,1,True), (1,2,True), (2,1,False)])
 print_renzoku(test_grid, test_constraints)
 test_renzoku(test_grid, test_constraints)
