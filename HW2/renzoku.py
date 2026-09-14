@@ -42,21 +42,27 @@ def print_renzoku(grid, constraints):
 
 def check_constraints(a, b, num, grid, constraints):
 
-    cur = grid[a, b]
-    right = grid[i, j+1] if j+1 < grid.shape[1] else -1
-    down = grid[i+1, j] if i+1 < grid.shape[0] else -1
+    #check row and col num uniqueness
+    for x in range (grid.shape[0]):
+        if grid[a, x] == num or grid[x, b] == num:
+            return False
 
-    for (i, j, v_h) in constraints:
-        if i==a and j==b:
-            if v_h and abs(cur-right)==1: return True
-            elif (not v_h) and abs(cur-down)==1: return True
-            else: return False
-
-
-def solve_renzoku(grid, constraints):
-    return solve(grid, constraints, 0, 0)
-
-
+    #check for adjacency constraints
+    right = grid[a, b+1] if b+1 < grid.shape[0] else 0
+    down = grid[a+1, b] if a+1 < grid.shape[0] else 0
+    #print (a, b, right, down, num)
+    if down != 0 and (a, b, False) in constraints and abs(num-down) != 1:
+        return False
+    elif down != 0 and abs(num-down) == 1:
+        return False
+    
+    if right != 0 and (a, b, True) in constraints and abs(num-right) != 1:
+        return False
+    elif right != 0 and abs(num-right) == 1:
+        return False
+    
+    return True
+            
 def solve(grid, constraints, row, col):
     if (row+1, col) == grid.shape: 
         return grid
@@ -67,18 +73,17 @@ def solve(grid, constraints, row, col):
     elif grid[row, col] != 0: 
         return solve(grid, constraints, row, col+1)
 
-    for num in range(1, grid.shape[0]):
+    for num in range(1, grid.shape[0]+1):
         if check_constraints(row, col, num, grid, constraints):
             grid[row, col] = num
-            if solve(grid, constraints, row, col+1):
-                return grid
-            grid[row, col] = 0
+            return solve(grid, constraints, row, col+1) 
+
+    return None
+            
+
         
-                    
-#true = 3●2
-#false = 3
-        #●
-        #2
+def solve_renzoku(grid, constraints):
+    return [solve(grid, constraints, 0, 0)]
 
 def test_renzoku(grid, constraints):
     solutions = solve_renzoku(grid, constraints)
