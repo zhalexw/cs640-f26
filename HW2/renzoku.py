@@ -87,10 +87,14 @@ def solve(grid, constraints, row, col):
         return solve(grid, constraints, row, col+1)
 
     for num in range(1, grid.shape[0]+1):
+        print(row, col, num)
         if check_constraints(row, col, num, grid, constraints):
+            
             grid[row, col] = num
-            s = solve(grid, constraints, row, col+1)
-            if s is None: continue
+            s = solve(grid, constraints, row, col+1) 
+            if s is None: 
+                grid[row, col] = 0
+                continue
             else: return s
     
     return None
@@ -119,7 +123,7 @@ test_constraints = set([(0,0,False), (0,0,True), (0,1,True), (1,0,False), (1,1,F
 print_renzoku(test_grid, test_constraints)
 test_renzoku(test_grid, test_constraints)"""
 
-ar = np.asarray([[0, 0, 1], [0, 0, 0], [0, 0, 0]])
-csr = set([(0,0,False),(0,0,True),(0,1,False),(0,1,True),(1,0,False),(1,0,True),(1,2,True),(2,1,False)])
+ar = np.asarray([[0, 0, 0, 0], [0, 0, 0, 0], [3, 0, 0, 0], [0, 0, 0, 0]])
+csr = set([(0,1,False),(0,2,True),(0,2,False),(0,3,True),(1,1,False),(1,2,False),(2,0,True),(2,0,False), (2,1,True),(2,1,False),(3,0,False),(3,1,False)])
 print_renzoku(ar, csr)
 test_renzoku(ar, csr)
