@@ -20,7 +20,7 @@ def normal_cdf(z):
     return np.where(z >= 0, 1.0 - tail, tail)
 
 
-def expected_next_value(balance, mean_return, std_return, next_values):
+def simulate_action(balance, mean_return, std_return, next_values):
     if balance <= 0:
         return 0.0
     if std_return == 0:
@@ -56,7 +56,7 @@ def estimate_q_values():
         for dollars in range(SIMULATION_DOLLARS_MAX + 1):
             invested = dollars - DEBT_DOLLARS if period == 2 else dollars
             for action, (mean_return, std_return) in enumerate(returns):
-                Q[(period, dollars), action] = expected_next_value(
+                Q[(period, dollars), action] = simulate_action(
                     invested, mean_return, std_return, next_values
                 )
             current_values[dollars] = max(Q[(period, dollars), a] for a in range(3))
