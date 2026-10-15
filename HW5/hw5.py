@@ -8,102 +8,62 @@ INIT_DOLLARS_MIN = 500_000 // SIMULATION_SCALE
 INIT_DOLLARS_MAX = 1_000_000 // SIMULATION_SCALE
 DEBT_DOLLARS = 500_000 // SIMULATION_SCALE
 SIMULATION_DOLLARS_MAX = 2_000_000 // SIMULATION_SCALE
+PORTFOLIOS = ((0.001, 0.0), (0.02, 0.01), (0.10, 0.10))
 
-EPSILON = 0.2
-LEARNING_RATE = 0.1
-
-def initialize_state():
-    #create initial portfolio
-    return (0, random.randrange(INIT_DOLLARS_MIN, INIT_DOLLARS_MAX + 1))
-
-def simulate_action(input_state, input_action):
-    (input_period, input_dollars) = input_state
-
-    assert input_action in (0, 1, 2)
-
-    if input_period >= 5:
-        return (None, 0)
-
-    if input_period == 2:
-        input_dollars -= DEBT_DOLLARS
-
-    if input_dollars <= 0:
-        return (None, BANKRUPTCY_REWARD)
-
-    if input_action == 0:
-        portfolio_return = 0.001
-        portfolio_std = 0.000
-    elif input_action == 1:
-        portfolio_return = 0.02
-        portfolio_std = 0.01
-    else:
-        portfolio_return = 0.10
-        portfolio_std = 0.10
-
-    output_period = input_period + 1
-    output_dollars = int(input_dollars * np.random.normal(1 + portfolio_return, portfolio_std))
-    # truncate distribution to control number of states
-    output_dollars = min(output_dollars, SIMULATION_DOLLARS_MAX)
-
-    output_state = (output_period, output_dollars)
-    # Only the final portfolio size counts toward the objective.
-    output_reward = output_dollars if output_period == 5 else 0
-
-    return output_state, output_reward
+def normal_cdf(z):
+    a = np.abs(z)
+    t = 1.0 / (1.0 + 0.2316419 * a)
+    tail = np.exp(-0.5 * a * a) * 0.3989422804014327 * t * (
+        0.319381530 + t * (-0.356563782 + t * (1.781477937 + t *
+        (-1.821255978 + t * 1.330274429)))
+    )
+    return np.where(z >= 0, 1.0 - tail, tail)
 
 
-#state = (year, dollars/200)
+def expected_next_value(balance, mean_return, std_return, next_values):
+    if balance <= 0:
+        return 0.0
+    if std_return == 0:
+        next_balance = min(int(balance * (1 + mean_return)), SIMULATION_DOLLARS_MAX)
+        return float(next_values[next_balance])
 
-#one action per year
-
-#actions = 0, 1, 2
-
-def is_terminal(state):
-    return state is None or state[0] == 5
-
-def get_q_value(Q, state, action):
-    return Q.get((state, action), 0.)
-
-def get_value(Q, state):
-    if is_terminal(state): return 0
-    return max(get_q_value(Q, state, a) for a in [0,1,2])
-
-def get_best_policy(Q, state):
-    if is_terminal(state): return None
-    best = max(get_q_value(Q, state, a) for a in [0,1,2])
-    return random.choice([a for a in [0,1,2] if get_q_value(Q, state, a) == best])
-
-def get_action(Q, state, epsilon):
-    if is_terminal(state): return None
-    if random.random() < epsilon:
-        return random.choice([0,1,2])
-    return get_best_policy(Q, state)
-
-def update(Q, state, action, next_state, reward, learning_rate):
-    # Q(s,a) = (1 - α) Q(s,a) + α (R + γ V(s'))
-    sample = reward + get_value(Q, next_state)
-    Q[state, action] = (1 - learning_rate) * get_q_value(Q, state, action) + learning_rate * sample
-
-
-def run_episode(Q, learning_rate, epsilon):
-    state = initialize_state()
-    total = 0.
-
-    while not is_terminal(state):
-        action = get_action(Q, state, epsilon)
-        next_state, reward = simulate_action(state, action)
-        update(Q, state, action, next_state, reward, learning_rate)
-        total += reward
-        state = next_state
-    return total
+    mean = balance * (1 + mean_return)
+    std = balance * std_return
+    lo = max(0, int(np.floor(mean - 8 * std)))
+    hi = min(SIMULATION_DOLLARS_MAX - 1, int(np.ceil(mean + 8 * std)))
+    value = 0.0
+    if lo <= hi:
+        outcomes = np.arange(lo, hi + 1)
+        edges = (np.arange(lo, hi + 2) - mean) / std
+        cdf = normal_cdf(edges)
+        probabilities = np.diff(cdf)
+        if lo == 0:
+            probabilities[0] = cdf[1]
+        value = float(np.dot(probabilities, next_values[outcomes]))
+    if hi == SIMULATION_DOLLARS_MAX - 1:
+        cap_z = np.array([(SIMULATION_DOLLARS_MAX - mean) / std])
+        value += float((1 - normal_cdf(cap_z)[0])
+                       * next_values[SIMULATION_DOLLARS_MAX])
+    return value
 
 
 def estimate_q_values():
+    next_values = np.arange(SIMULATION_DOLLARS_MAX + 1, dtype=float)
     Q = {}
-    for _ in range(4, -1, -1):
-        for _ in range(SIMULATION_DOLLARS_MAX + 1):
-            run_episode(Q, LEARNING_RATE, EPSILON)
+    returns = ((0.001, 0.0), (0.02, 0.01), (0.10, 0.10))
+    for period in range(4, -1, -1):
+        current_values = np.zeros(SIMULATION_DOLLARS_MAX + 1)
+        for dollars in range(SIMULATION_DOLLARS_MAX + 1):
+            invested = dollars - DEBT_DOLLARS if period == 2 else dollars
+            for action, (mean_return, std_return) in enumerate(returns):
+                Q[(period, dollars), action] = expected_next_value(
+                    invested, mean_return, std_return, next_values
+                )
+            current_values[dollars] = max(Q[(period, dollars), a] for a in range(3))
+        next_values = current_values
     return Q
+
+
 
 
 q_values = estimate_q_values()
@@ -113,6 +73,5 @@ with open("q_values.tsv", "w") as f:
         for period in range(5):
             for dollars in range(SIMULATION_DOLLARS_MAX + 1):
                 for action in range(3):
-                    if q_values.get(((period, dollars), action), None) is not None:
-                        f.write(f"{period}\t{dollars}\t{action}\t"
+                    f.write(f"{period}\t{dollars}\t{action}\t"
                             f"{q_values[(period, dollars), action]:.8f}\n")
